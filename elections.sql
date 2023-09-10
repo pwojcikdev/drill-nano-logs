@@ -132,14 +132,8 @@ FROM elections_all
 WHERE confirmed = 'false';
 
 
+-- Overlap:
 -- WHERE startA < endB AND endA > startB
-
--- Overlap WIP
-SELECT (CAST('2023-09-09 21:38:58' AS TIMESTAMP) < e1.stopped_timestamp AND CAST('2023-09-09 21:39:28' AS TIMESTAMP) > e1.started_timestamp) as overlap,
-       *
-FROM elections_all e1
-WHERE e1.root = 'EC34C4DD07105618DD705366A861C2F56BCB425A7A817CBCBCCC940534248887EC34C4DD07105618DD705366A861C2F56BCB425A7A817CBCBCCC940534248887';
-
 
 -- Overlap WIP
 SELECT *
@@ -232,10 +226,36 @@ GROUP BY e.root, e.e1_id, e.e1_node
 ORDER BY overlapping DESC;
 
 
+-- Overlap info grouped
+SELECT overlapping_nodes,
+       COUNT(*) as cnt
+FROM (SELECT e.root                      as root,
+             e.e1_id                     as id,
+             e.e1_node                   as node,
+             COUNT(*)                    as overlapping,
+             COUNT(DISTINCT (e.e2_node)) as overlapping_nodes
+      FROM elections_overlap e
+      GROUP BY e.root, e.e1_id, e.e1_node
+      ORDER BY overlapping DESC)
+GROUP BY overlapping_nodes;
+
+
 -- Filter overlap
 SELECT *
-FROM elections_overlap e
-WHERE e.root = '86310FE3E3E0F92B57066FF33B396E097146A694B6DA2D7023D296EF882765E886310FE3E3E0F92B57066FF33B396E097146A694B6DA2D7023D296EF882765E8'
-  AND e.e1_id = '0xd5d7'
-  AND e.e1_node = 'rep_4'
-ORDER BY e.e2_node, e.e2_started_timestamp ASC;
+FROM elections_overlap
+WHERE root = '${root_value}'
+  AND e1_id = '${id_value}'
+  AND e1_node = '${node_value}'
+ORDER BY e2_node, e2_started_timestamp ASC;
+
+
+-- Filter election blocks
+SELECT e.root       as root,
+       e.id         as id,
+       e.node       as node,
+       e.block.hash as hash
+FROM (SELECT *, FLATTEN(blocks) as block
+      FROM elections_all
+      WHERE root = '${root_value}'
+        AND id = '${id_value}'
+        AND node = '${node_value}') e;

@@ -1,5 +1,5 @@
 -- Create all elections (VIEW)
-CREATE VIEW dfs.views.elections_all AS
+CREATE VIEW elections_all AS
 SELECT started.dir0                      as node,
        started.election.id               as id,
        CAST(started.tstamp AS TIMESTAMP) as started_timestamp,
