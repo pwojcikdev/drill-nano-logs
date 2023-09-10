@@ -239,23 +239,3 @@ WHERE e.root = '86310FE3E3E0F92B57066FF33B396E097146A694B6DA2D7023D296EF882765E8
   AND e.e1_id = '0xd5d7'
   AND e.e1_node = 'rep_4'
 ORDER BY e.e2_node, e.e2_started_timestamp ASC;
-
-
--- Elections with blocks
-SELECT started.dir0                      as node,
-       started.election.id               as id,
-       CAST(started.tstamp AS TIMESTAMP) as started_timestamp,
-       CAST(stopped.tstamp AS TIMESTAMP) as stopped_timestamp,
-       TIMESTAMPDIFF(SECOND, CAST(started.tstamp AS TIMESTAMP), CAST(stopped.tstamp AS TIMESTAMP))
-                                         as alive_seconds,
-       started.election.root             as root,
-       stopped.election.confirmed        as confirmed,
-       stopped.election.state            as state,
-       stopped.election.behaviour        as behaviour,
-       stopped.election.blocks           as blocks
-FROM `*/active_transactions-active_started.log.json` started
-         JOIN
-     `*/active_transactions-active_stopped.log.json` stopped
-     ON
-         started.dir0 = stopped.dir0 AND started.election.id = stopped.election.id
-ORDER BY started_timestamp ASC;

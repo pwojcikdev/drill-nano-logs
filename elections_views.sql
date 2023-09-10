@@ -11,10 +11,8 @@ SELECT started.dir0                      as node,
        stopped.election.state            as state,
        stopped.election.behaviour        as behaviour
 FROM `*/active_transactions-active_started.log.json` started
-         JOIN
-     `*/active_transactions-active_stopped.log.json` stopped
-     ON
-         started.dir0 = stopped.dir0 AND started.election.id = stopped.election.id
+         JOIN `*/active_transactions-active_stopped.log.json` stopped
+              ON started.dir0 = stopped.dir0 AND started.election.id = stopped.election.id
 ORDER BY started_timestamp ASC;
 
 
@@ -32,10 +30,8 @@ SELECT started.dir0                      as node,
        stopped.election.behaviour        as behaviour,
        stopped.election.blocks           as blocks
 FROM `*/active_transactions-active_started.log.json` started
-         JOIN
-     `*/active_transactions-active_stopped.log.json` stopped
-     ON
-         started.dir0 = stopped.dir0 AND started.election.id = stopped.election.id
+         JOIN `*/active_transactions-active_stopped.log.json` stopped
+              ON started.dir0 = stopped.dir0 AND started.election.id = stopped.election.id
 ORDER BY started_timestamp ASC;
 
 
@@ -55,7 +51,8 @@ SELECT e1.root              as root,
        e2.node              as e2_node,
        e2.started_timestamp as e2_started_timestamp,
        e2.stopped_timestamp as e2_stopped_timestamp,
-       e2.behaviour         as e2_behaviour
+       e2.behaviour         as e2_behaviour,
+       e1.blocks            as blocks
 FROM elections_all e1
          LEFT JOIN elections_all e2
                    ON e1.root = e2.root
