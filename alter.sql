@@ -4,8 +4,13 @@ SESSION SET `store.json.all_text_mode` = true;
 ALTER
 SYSTEM SET `store.json.all_text_mode` = true;
 
+
 ALTER
 SESSION SET `drill.exec.hashjoin.fallback.enabled` = true;
+
+ALTER
+SYSTEM SET `drill.exec.hashjoin.fallback.enabled` = true;
+
 
 -- Default
 ALTER

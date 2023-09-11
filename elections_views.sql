@@ -39,8 +39,9 @@ SELECT *
 FROM elections_all;
 
 
--- Create overlap info (TABLE)
-CREATE TABLE elections_overlap AS
+-- Create overlap info
+-- CREATE TABLE elections_overlap AS
+CREATE VIEW elections_overlap AS
 SELECT e1.root              as root,
        e1.id                as e1_id,
        e1.node              as e1_node,

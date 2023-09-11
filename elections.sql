@@ -240,15 +240,6 @@ FROM (SELECT e.root                      as root,
 GROUP BY overlapping_nodes;
 
 
--- Filter overlap
-SELECT *
-FROM elections_overlap
-WHERE root = '${root_value}'
-  AND e1_id = '${id_value}'
-  AND e1_node = '${node_value}'
-ORDER BY e2_node, e2_started_timestamp ASC;
-
-
 -- Filter election blocks
 SELECT e.root       as root,
        e.id         as id,
@@ -259,3 +250,12 @@ FROM (SELECT *, FLATTEN(blocks) as block
       WHERE root = '${root_value}'
         AND id = '${id_value}'
         AND node = '${node_value}') e;
+
+
+-- Overlapping elections
+SELECT *
+FROM elections_overlap
+WHERE root = '${root_value}'
+  AND e1_id = '${id_value}'
+  AND e1_node = '${node_value}'
+ORDER BY e2_node, e2_started_timestamp ASC;

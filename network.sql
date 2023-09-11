@@ -28,14 +28,14 @@ FROM msg_processed_all m
 WHERE m.type = 'confirm_ack';
 
 
--- Confirm acks processed, with target hash
+-- Confirm acks processed with target hash
 SELECT *
 FROM msg_processed_confirm_ack
 WHERE vote_hash = '${hash_value}'
   AND node = '${node_value}';
 
 
--- Confirm acks received, with target hash, by account
+-- Confirm acks received with target hash, by account
 SELECT vote_account,
        COUNT(*) as cnt
 FROM msg_processed_confirm_ack
@@ -44,12 +44,15 @@ WHERE vote_hash = '${hash_value}'
 GROUP BY vote_account;
 
 
--- Confirm acks sent, with target hash
+-- Confirm acks sent with target hash
 SELECT *
 FROM msg_sent_confirm_ack
 WHERE vote_hash = '${hash_value}';
 
 
-SELECT *
+-- Confirm acks sent with target hash, by node and target node
+SELECT node, target_node, COUNT(*) as cnt, vote_account
 FROM msg_sent_confirm_ack
-WHERE CAST(vote_hash as VARCHAR) = '${hash_value}';
+WHERE vote_hash = '${hash_value}'
+GROUP BY node, target_node, vote_account
+ORDER BY node, target_node, cnt DESC;
