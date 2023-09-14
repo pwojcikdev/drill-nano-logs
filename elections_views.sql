@@ -39,6 +39,24 @@ SELECT *
 FROM elections_all;
 
 
+CREATE VIEW elections_all_flattened AS
+SELECT node,
+       id,
+       started_timestamp,
+       stopped_timestamp,
+       alive_seconds,
+       root,
+       confirmed,
+       state,
+       behaviour,
+       FLATTEN(blocks) as block
+FROM elections_all;
+
+
+SELECT *
+FROM elections_all_flattened;
+
+
 -- Create overlap info
 -- CREATE TABLE elections_overlap AS
 CREATE VIEW elections_overlap AS

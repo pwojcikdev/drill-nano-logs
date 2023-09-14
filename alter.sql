@@ -32,3 +32,7 @@ SESSION SET `exec.enable_union_type` = true;
 
 ALTER
 SESSION SET `exec.errors.verbose` = true;
+
+
+ALTER
+SESSION SET `planner.enable_nljoin_for_scalar_only` = false;
