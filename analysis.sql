@@ -82,7 +82,18 @@ FROM `*/channel_sent-confirm_ack.log.json` m;
 
 -- ELECTIONS
 
--- Overlap info grouped
+-- Count overlapping nodes
+SELECT e.root                      as root,
+       e.e1_id                     as id,
+       e.e1_node                   as node,
+       COUNT(*)                    as overlapping,
+       COUNT(DISTINCT (e.e2_node)) as overlapping_nodes
+FROM elections_overlap e
+GROUP BY e.root, e.e1_id, e.e1_node
+ORDER BY overlapping DESC;
+
+
+-- Count overlapping nodes, grouped
 SELECT overlapping_nodes,
        COUNT(*) as cnt
 FROM (SELECT e.root                      as root,
@@ -96,17 +107,6 @@ FROM (SELECT e.root                      as root,
 GROUP BY overlapping_nodes;
 
 
--- Count overlapping nodes
-SELECT e.root                      as root,
-       e.e1_id                     as id,
-       e.e1_node                   as node,
-       COUNT(*)                    as overlapping,
-       COUNT(DISTINCT (e.e2_node)) as overlapping_nodes
-FROM elections_overlap e
-GROUP BY e.root, e.e1_id, e.e1_node
-ORDER BY overlapping DESC;
-
-
 -- Filter election blocks
 SELECT e.root       as root,
        e.id         as id,
@@ -118,6 +118,8 @@ FROM (SELECT *, FLATTEN(blocks) as block
         AND id = '${id_value}'
         AND node = '${node_value}') e;
 
+
+-- SINGLE ELECTION
 
 -- Overlapping elections
 SELECT *
@@ -169,7 +171,7 @@ ORDER BY node, tstamp ASC;
 
 -- VOTES
 
--- Received overlapping confirm acks
+-- Received overlapping votes
 SELECT e.root,
        e.id,
        e.node,
@@ -185,7 +187,7 @@ GROUP BY e.root, e.id, e.node, e.alive_seconds
 ORDER BY overlapping_acks DESC, alive_seconds DESC;
 
 
--- Received overlapping confirm acks, grouped
+-- Received overlapping votes, grouped
 SELECT overlapping_acks,
        COUNT(*) as cnt
 FROM (SELECT e.root,
@@ -201,3 +203,38 @@ FROM (SELECT e.root,
       WHERE e.confirmed = 'false'
       GROUP BY e.root, e.id, e.node, e.alive_seconds)
 GROUP BY overlapping_acks;
+
+
+-- Attempted overlapping votes
+SELECT e.root,
+       e.id,
+       e.node,
+       e.alive_seconds,
+       COUNT(*)                 as overlapping,
+       COUNT(DISTINCT (v.node)) as overlapping_attempts
+FROM elections_all e
+         JOIN elections_votes v
+              ON v.hash = e.blocks[0].hash AND NOT v.node = e.node
+                  AND v.tstamp BETWEEN e.started_timestamp AND e.stopped_timestamp
+WHERE e.confirmed = 'false'
+GROUP BY e.root, e.id, e.node, e.alive_seconds
+ORDER BY overlapping_attempts DESC, alive_seconds DESC;
+
+
+-- Attempted overlapping votes, grouped
+SELECT overlapping_attempts,
+       COUNT(*) as cnt
+FROM (SELECT e.root,
+             e.id,
+             e.node,
+             e.alive_seconds,
+             COUNT(*)                 as overlapping,
+             COUNT(DISTINCT (v.node)) as overlapping_attempts
+      FROM elections_all e
+               JOIN elections_votes v
+                    ON v.hash = e.blocks[0].hash AND NOT v.node = e.node
+                        AND v.tstamp BETWEEN e.started_timestamp AND e.stopped_timestamp
+      WHERE e.confirmed = 'false'
+      GROUP BY e.root, e.id, e.node, e.alive_seconds
+      ORDER BY overlapping_attempts DESC, alive_seconds DESC)
+GROUP BY overlapping_attempts;
