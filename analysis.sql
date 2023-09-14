@@ -191,3 +191,65 @@ FROM (SELECT *
                          ON a.id = b.id AND a.node = b.node)
 -- WHERE overlapping_attempts = 0 AND overlapping_acks > 0;
 WHERE overlapping_acks > overlapping_attempts;
+
+
+-- Successful vote generator candidates
+SELECT voted,
+       COUNT(*) as cnt
+FROM vote_generator_attempts
+GROUP BY voted;
+
+
+-- Attempted overlapping vote generator candidates
+CREATE VIEW elections_overlapping_vote_generator AS
+WITH AggregatedResults AS
+         (SELECT e.root,
+                 e.id,
+                 e.node,
+                 e.alive_seconds,
+                 COUNT(*)                                                       as overlapping,
+                 COALESCE(COUNT(DISTINCT v.node), 0)                            as overlapping_attempts,
+                 COALESCE(COUNT(DISTINCT (
+                     CASE WHEN v.voted = 'true' THEN v.node ELSE NULL END)), 0) as overlapping_attempts_successful,
+                 COUNT(CASE WHEN v.voted = 'true' THEN 1 ELSE NULL END)         as vote_success,
+                 COUNT(CASE WHEN v.voted = 'false' THEN 1 ELSE NULL END)        as vote_fail
+          FROM elections_not_confirmed e
+                   LEFT JOIN vote_generator_attempts v
+                             ON v.hash = e.blocks[0].hash
+          WHERE NOT v.node = e.node
+            AND (v.tstamp BETWEEN e.started_timestamp AND e.stopped_timestamp)
+          GROUP BY e.root, e.id, e.node, e.alive_seconds
+          ORDER BY overlapping_attempts DESC, e.alive_seconds DESC)
+
+SELECT e.root,
+       e.id,
+       e.node,
+       e.alive_seconds,
+       COALESCE(ar.overlapping, 0)                     as overlapping,
+       COALESCE(ar.overlapping_attempts, 0)            as overlapping_attempts,
+       COALESCE(ar.overlapping_attempts_successful, 0) as overlapping_attempts_successful,
+       COALESCE(ar.vote_success, 0)                    as vote_success,
+       COALESCE(ar.vote_fail, 0)                       as vote_fail
+FROM elections_not_confirmed e
+         LEFT JOIN AggregatedResults ar ON ar.id = e.id AND ar.node = e.node;
+
+
+-- Successful overlapping attempts, grouped
+SELECT overlapping_attempts,
+       overlapping_attempts_successful,
+       COUNT(*) as cnt
+FROM elections_overlapping_vote_generator
+GROUP BY overlapping_attempts, overlapping_attempts_successful
+ORDER BY overlapping_attempts DESC, overlapping_attempts_successful DESC;
+
+
+-- Successful overlapping attempts and received acks, grouped
+SELECT overlapping_attempts,
+       overlapping_attempts_successful,
+       overlapping_acks,
+       COUNT(*) as cnt
+FROM elections_overlapping_vote_generator att
+         FULL JOIN elections_overlapping_votes_received rcv
+                   ON att.id = rcv.id AND att.node = rcv.node
+GROUP BY overlapping_attempts, overlapping_attempts_successful, overlapping_acks
+ORDER BY overlapping_attempts DESC, overlapping_attempts_successful DESC, overlapping_acks DESC;
