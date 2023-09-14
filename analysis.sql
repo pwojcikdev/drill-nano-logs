@@ -40,6 +40,12 @@ WHERE NOT e1.node = e2.node
   AND e1.stopped_timestamp > e2.started_timestamp;
 
 
+CREATE VIEW elections_not_confirmed AS
+SELECT *
+FROM elections_all
+WHERE confirmed = 'false';
+
+
 CREATE VIEW msg_processed_all AS
 SELECT CAST(m.tstamp AS TIMESTAMP) as tstamp,
        m.dir0                      as node,
@@ -172,29 +178,28 @@ ORDER BY node, tstamp ASC;
 
 -- Received overlapping votes (VIEW)
 CREATE VIEW elections_overlapping_votes_received AS
-SELECT sub.root,
-       sub.id,
-       sub.node,
-       sub.alive_seconds,
-       COUNT(*)                           as overlapping,
-       COUNT(DISTINCT (sub.vote_account)) as overlapping_acks
-FROM (SELECT e.root,
-             e.id,
-             e.node,
-             e.alive_seconds,
-             e.started_timestamp,
-             e.stopped_timestamp,
-             e.confirmed,
-             m.vote_account,
-             m.vote_hash,
-             m.tstamp as msg_tstamp
-      FROM elections_all e
-               LEFT JOIN msg_processed_confirm_ack m
-                         ON m.vote_hash = e.blocks[0].hash AND m.node = e.node) as sub
-WHERE sub.confirmed = 'false'
-  AND (sub.msg_tstamp BETWEEN sub.started_timestamp AND sub.stopped_timestamp OR sub.vote_hash IS NULL)
-GROUP BY sub.root, sub.id, sub.node, sub.alive_seconds
-ORDER BY overlapping_acks DESC, sub.alive_seconds DESC;
+WITH AggregatedResults AS
+         (SELECT e.root,
+                 e.id,
+                 e.node,
+                 COUNT(*)                                    as overlapping,
+                 COALESCE(COUNT(DISTINCT m.vote_account), 0) as overlapping_acks
+          FROM elections_not_confirmed e
+                   LEFT JOIN msg_processed_confirm_ack m
+                             ON m.vote_hash = e.blocks[0].hash
+          WHERE m.node = e.node
+            AND (m.tstamp BETWEEN e.started_timestamp AND e.stopped_timestamp)
+          GROUP BY e.root, e.id, e.node, e.alive_seconds
+          ORDER BY overlapping_acks DESC, e.alive_seconds DESC)
+
+SELECT e.root,
+       e.id,
+       e.node,
+       e.alive_seconds,
+       COALESCE(ar.overlapping, 0)      as overlapping,
+       COALESCE(ar.overlapping_acks, 0) as overlapping_acks
+FROM elections_not_confirmed e
+         LEFT JOIN AggregatedResults ar ON ar.id = e.id AND ar.node = e.node;
 
 
 -- Received overlapping votes
@@ -206,52 +211,35 @@ FROM elections_overlapping_votes_received;
 SELECT overlapping_acks,
        COUNT(*) as cnt
 FROM elections_overlapping_votes_received
-GROUP BY overlapping_acks;
-
-
--- Attempted overlapping votes
-CREATE VIEW elections_overlapping_votes_attempted AS
-SELECT e.root,
-       e.id,
-       e.node,
-       e.alive_seconds,
-       COUNT(*)                 as overlapping,
-       COUNT(DISTINCT (v.node)) as overlapping_attempts
-FROM elections_all e
-         JOIN elections_votes v
-              ON v.hash = e.blocks[0].hash AND NOT v.node = e.node
-                  AND v.tstamp BETWEEN e.started_timestamp AND e.stopped_timestamp
-WHERE e.confirmed = 'false'
-GROUP BY e.root, e.id, e.node, e.alive_seconds
-ORDER BY overlapping_attempts DESC, alive_seconds DESC;
+GROUP BY overlapping_acks
+ORDER BY overlapping_acks DESC;
 
 
 -- Attempted overlapping votes (VIEW)
 CREATE VIEW elections_overlapping_votes_attempted AS
-SELECT sub.root,
-       sub.id,
-       sub.node,
-       sub.alive_seconds,
-       COUNT(*)                        as overlapping,
-       COUNT(DISTINCT (sub.vote_node)) as overlapping_attempts
-FROM (SELECT e.root,
-             e.id,
-             e.node,
-             e.alive_seconds,
-             e.started_timestamp,
-             e.stopped_timestamp,
-             e.confirmed,
-             v.node   as vote_node,
-             v.hash   as vote_hash,
-             v.tstamp as vote_tstamp
-      FROM elections_all e
-               LEFT JOIN elections_votes v
-                         ON v.hash = e.blocks[0].hash) as sub
-WHERE sub.confirmed = 'false'
-  AND NOT sub.vote_node = sub.node
-  AND (sub.vote_tstamp BETWEEN sub.started_timestamp AND sub.stopped_timestamp OR sub.vote_hash IS NULL)
-GROUP BY sub.root, sub.id, sub.node, sub.alive_seconds
-ORDER BY overlapping_attempts DESC, sub.alive_seconds DESC;
+WITH AggregatedResults AS
+         (SELECT e.root,
+                 e.id,
+                 e.node,
+                 e.alive_seconds,
+                 COUNT(*)                            as overlapping,
+                 COALESCE(COUNT(DISTINCT v.node), 0) as overlapping_attempts
+          FROM elections_not_confirmed e
+                   LEFT JOIN elections_votes v
+                             ON v.hash = e.blocks[0].hash
+          WHERE NOT v.node = e.node
+            AND (v.tstamp BETWEEN e.started_timestamp AND e.stopped_timestamp)
+          GROUP BY e.root, e.id, e.node, e.alive_seconds
+          ORDER BY overlapping_attempts DESC, e.alive_seconds DESC)
+
+SELECT e.root,
+       e.id,
+       e.node,
+       e.alive_seconds,
+       COALESCE(ar.overlapping, 0)          as overlapping,
+       COALESCE(ar.overlapping_attempts, 0) as overlapping_attempts
+FROM elections_not_confirmed e
+         LEFT JOIN AggregatedResults ar ON ar.id = e.id AND ar.node = e.node;
 
 
 -- Attempted overlapping votes
@@ -263,7 +251,8 @@ FROM elections_overlapping_votes_attempted;
 SELECT overlapping_attempts,
        COUNT(*) as cnt
 FROM elections_overlapping_votes_attempted
-GROUP BY overlapping_attempts;
+GROUP BY overlapping_attempts
+ORDER BY overlapping_attempts DESC;
 
 
 -- Received overlapping votes and attempted overlapping votes
@@ -277,7 +266,7 @@ SELECT a.root,
        b.overlapping_attempts
 FROM elections_overlapping_votes_received a
          LEFT JOIN elections_overlapping_votes_attempted b
-              ON a.id = b.id AND a.node = b.node;
+                   ON a.id = b.id AND a.node = b.node;
 
 
 -- Received overlapping votes and attempted overlapping votes, grouped
@@ -289,3 +278,13 @@ FROM elections_overlapping_votes_received a
                    ON a.id = b.id AND a.node = b.node
 GROUP BY a.overlapping_acks, b.overlapping_attempts
 ORDER BY a.overlapping_acks DESC, b.overlapping_attempts DESC;
+
+
+-- Received acks without an attempt wtf
+SELECT *
+FROM (SELECT *
+      FROM elections_overlapping_votes_received a
+               FULL JOIN elections_overlapping_votes_attempted b
+                         ON a.id = b.id AND a.node = b.node)
+-- WHERE overlapping_attempts = 0 AND overlapping_acks > 0;
+WHERE overlapping_acks > overlapping_attempts;
