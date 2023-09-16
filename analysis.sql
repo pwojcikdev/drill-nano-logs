@@ -2,12 +2,12 @@
 
 -- Count overlapping nodes
 SELECT e.root                      as root,
-       e.e1_id                     as id,
-       e.e1_node                   as node,
+       e.id                        as id,
+       e.node                      as node,
        COUNT(*)                    as overlapping,
        COUNT(DISTINCT (e.e2_node)) as overlapping_nodes
 FROM elections_overlap e
-GROUP BY e.root, e.e1_id, e.e1_node
+GROUP BY e.root, e.id, e.node
 ORDER BY overlapping DESC;
 
 
@@ -15,12 +15,12 @@ ORDER BY overlapping DESC;
 SELECT overlapping_nodes,
        COUNT(*) as cnt
 FROM (SELECT e.root                      as root,
-             e.e1_id                     as id,
-             e.e1_node                   as node,
+             e.id                        as id,
+             e.node                      as node,
              COUNT(*)                    as overlapping,
              COUNT(DISTINCT (e.e2_node)) as overlapping_nodes
       FROM elections_overlap e
-      GROUP BY e.root, e.e1_id, e.e1_node
+      GROUP BY e.root, e.id, e.node
       ORDER BY overlapping DESC)
 GROUP BY overlapping_nodes;
 
@@ -43,8 +43,8 @@ FROM (SELECT *, FLATTEN(blocks) as block
 SELECT *
 FROM elections_overlap
 WHERE root = '${root_value}'
-  AND e1_id = '${id_value}'
-  AND e1_node = '${node_value}'
+  AND id = '${id_value}'
+  AND node = '${node_value}'
 ORDER BY e2_node, e2_started_timestamp ASC;
 
 
@@ -308,7 +308,7 @@ WITH AggregatedSent AS
 SELECT arcv.type as type,
        sent,
        processed,
-       COUNT(*) as cnt
+       COUNT(*)  as cnt
 FROM AggregatedReceived arcv
          LEFT JOIN AggregatedSent asnt
                    ON asnt.id = arcv.id

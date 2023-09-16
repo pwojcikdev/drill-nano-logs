@@ -38,24 +38,23 @@ FROM elections_not_confirmed;
 
 CREATE VIEW elections_overlap AS
 SELECT e1.root              as root,
-       e1.id                as e1_id,
-       e1.node              as e1_node,
-       e1.started_timestamp as e1_started_timestamp,
-       e1.stopped_timestamp as e1_stopped_timestamp,
-       e1.behaviour         as e1_behaviour,
+       e1.id                as id,
+       e1.node              as node,
+       e1.started_timestamp as started_timestamp,
+       e1.stopped_timestamp as stopped_timestamp,
+       e1.behaviour         as behaviour,
        e2.id                as e2_id,
        e2.node              as e2_node,
        e2.started_timestamp as e2_started_timestamp,
        e2.stopped_timestamp as e2_stopped_timestamp,
        e2.behaviour         as e2_behaviour,
        e1.blocks            as blocks
-FROM elections_all e1
+FROM elections_not_confirmed e1
          LEFT JOIN elections_all e2
                    ON e1.root = e2.root
 WHERE NOT e1.node = e2.node
-  AND e1.confirmed = 'false'
-  AND e1.started_timestamp < e2.stopped_timestamp
-  AND e1.stopped_timestamp > e2.started_timestamp;
+  AND e1.started_timestamp <= e2.stopped_timestamp
+  AND e1.stopped_timestamp >= e2.started_timestamp;
 
 SELECT *
 FROM elections_overlap;
