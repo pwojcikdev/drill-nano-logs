@@ -253,3 +253,64 @@ FROM elections_overlapping_vote_generator att
                    ON att.id = rcv.id AND att.node = rcv.node
 GROUP BY overlapping_attempts, overlapping_attempts_successful, overlapping_acks
 ORDER BY overlapping_attempts DESC, overlapping_attempts_successful DESC, overlapping_acks DESC;
+
+
+-- Messages sent and received, grouped
+WITH AggregatedSent AS
+         (SELECT MIN(snt.tstamp)                   as tstamp,
+                 snt.id                            as id,
+                 snt.node                          as node,
+                 COUNT(DISTINCT (snt.target_node)) as sent
+          FROM msg_sent_all snt
+          GROUP BY snt.id, snt.node),
+
+     AggregatedReceived AS
+         (SELECT MIN(snt.tstamp)            as tstamp,
+                 snt.id                     as id,
+                 snt.node                   as node,
+                 COUNT(DISTINCT (rcv.node)) as processed
+          FROM msg_sent_all snt
+                   LEFT JOIN msg_processed_all rcv
+                             ON snt.id = rcv.id
+          GROUP BY snt.id, snt.node)
+
+SELECT sent,
+       processed,
+       COUNT(*) as cnt
+FROM AggregatedReceived arcv
+         LEFT JOIN AggregatedSent asnt
+                   ON asnt.id = arcv.id
+GROUP BY sent, processed
+ORDER BY sent DESC, processed DESC;
+
+
+-- Messages sent and received, grouped by type
+WITH AggregatedSent AS
+         (SELECT MIN(snt.tstamp)                   as tstamp,
+                 snt.id                            as id,
+                 snt.node                          as node,
+                 snt.type                          as type,
+                 COUNT(DISTINCT (snt.target_node)) as sent
+          FROM msg_sent_all snt
+          GROUP BY snt.id, snt.node, snt.type),
+
+     AggregatedReceived AS
+         (SELECT MIN(snt.tstamp)            as tstamp,
+                 snt.id                     as id,
+                 snt.node                   as node,
+                 snt.type                   as type,
+                 COUNT(DISTINCT (rcv.node)) as processed
+          FROM msg_sent_all snt
+                   LEFT JOIN msg_processed_all rcv
+                             ON snt.id = rcv.id
+          GROUP BY snt.id, snt.node, snt.type)
+
+SELECT arcv.type as type,
+       sent,
+       processed,
+       COUNT(*) as cnt
+FROM AggregatedReceived arcv
+         LEFT JOIN AggregatedSent asnt
+                   ON asnt.id = arcv.id
+GROUP BY type, sent, processed
+ORDER BY type DESC, sent DESC, processed DESC;

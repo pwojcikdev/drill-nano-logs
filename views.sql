@@ -75,9 +75,14 @@ FROM elections_votes;
 
 -- MESSAGES PROCESSED
 
+SELECT *
+FROM `*/network_processed-*.log.json`;
+
+
 CREATE VIEW msg_processed_all AS
 SELECT CAST(m.tstamp AS TIMESTAMP) as tstamp,
        m.dir0                      as node,
+       m.message.header.id         as id,
        m.message.header.type       as type,
        m.message                   as message
 FROM `*/network_processed-*.log.json` m;
@@ -86,6 +91,7 @@ FROM `*/network_processed-*.log.json` m;
 CREATE VIEW msg_processed_confirm_ack AS
 SELECT CAST(m.tstamp AS TIMESTAMP)    as tstamp,
        m.dir0                         as node,
+       m.message.header.id            as id,
        m.message.header.type          as type,
        m.message.vote.account         as vote_account,
        m.message.vote.`timestamp`     as vote_timestamp,
@@ -95,19 +101,28 @@ FROM `*/network_processed-confirm_ack.log.json` m;
 
 -- MESSAGES SENT
 
+SELECT *
+FROM `*/channel_sent-*.json`;
+
+
 CREATE VIEW msg_sent_all AS
 SELECT CAST(m.tstamp AS TIMESTAMP) as tstamp,
        m.dir0                      as node,
+       m.message.header.id         as id,
        m.message.header.type       as type,
        m.channel.node_id           as target_node,
        m.dropped                   as dropped,
        m.message                   as message
 FROM `*/channel_sent-*.json` m;
 
+SELECT *
+FROM msg_sent_all;
+
 
 CREATE VIEW msg_sent_confirm_ack AS
 SELECT CAST(m.tstamp AS TIMESTAMP)    as tstamp,
        m.dir0                         as node,
+       m.message.header.id            as id,
        m.message.header.type          as type,
        m.channel.node_id              as target_node,
        m.dropped                      as dropped,
@@ -115,6 +130,9 @@ SELECT CAST(m.tstamp AS TIMESTAMP)    as tstamp,
        m.message.vote.`timestamp`     as vote_timestamp,
        FLATTEN(m.message.vote.hashes) as vote_hash
 FROM `*/channel_sent-confirm_ack.log.json` m;
+
+SELECT *
+FROM msg_sent_confirm_ack;
 
 
 -- VOTE GENERATOR
