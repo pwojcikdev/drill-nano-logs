@@ -27,6 +27,20 @@ SELECT *
 FROM elections_all;
 
 
+CREATE VIEW elections_all_flattened AS
+SELECT e.node,
+       e.id,
+       e.started_timestamp,
+       e.stopped_timestamp,
+       e.alive_seconds,
+       e.root,
+       e.confirmed,
+       e.state,
+       e.behaviour,
+       FLATTEN(e.blocks) as block
+FROM elections_all e;
+
+
 CREATE VIEW elections_not_confirmed AS
 SELECT *
 FROM elections_all

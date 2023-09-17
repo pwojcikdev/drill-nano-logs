@@ -314,3 +314,69 @@ FROM AggregatedReceived arcv
                    ON asnt.id = arcv.id
 GROUP BY type, sent, processed
 ORDER BY type DESC, sent DESC, processed DESC;
+
+
+-- Correlate each vote generator attempt with an election
+CREATE VIEW vote_generator_attempts_to_election AS
+SELECT att.tstamp as tstamp,
+       att.node   as node,
+       att.hash   as hash,
+       att.voted  as voted,
+       att.final  as final,
+       att.block  as block,
+       e.id       as e_id,
+       e.node     as e_node,
+       e.root     as e_root
+FROM vote_generator_attempts att
+         LEFT JOIN elections_all e
+                   ON att.hash = e.blocks[0].hash AND att.node = e.node
+WHERE (att.tstamp BETWEEN e.started_timestamp AND e.stopped_timestamp);
+
+
+-- Overlapping elections with vote attempts info
+WITH AggregatedOverlap AS
+         (SELECT e.root                      as root,
+                 e.id                        as id,
+                 e.node                      as node,
+                 e.behaviour                 as behaviour,
+                 COUNT(*)                    as overlapping,
+                 COUNT(DISTINCT (e.e2_node)) as overlapping_nodes
+          FROM elections_overlap e
+          GROUP BY e.root, e.id, e.node, e.behaviour
+          ORDER BY overlapping DESC),
+
+     OverlappingResults AS
+         (SELECT e.root                 as root,
+                 e.id                   as id,
+                 e.node                 as node,
+                 agg.overlapping        as overlapping,
+                 agg.overlapping_nodes  as overlapping_nodes,
+                 e.e2_id                as e2_id,
+                 e.e2_node              as e2_node,
+                 e.e2_started_timestamp as e2_started_timestamp,
+                 e.e2_stopped_timestamp as e2_stopped_timestamp,
+                 e.e2_behaviour         as e2_behaviour
+          FROM elections_overlap e
+                   LEFT JOIN AggregatedOverlap agg
+                             ON e.id = agg.id
+          ORDER BY agg.overlapping_nodes DESC, agg.overlapping DESC, e.root, e.id, e.node, e.e2_node, e.e2_started_timestamp)
+
+SELECT ovr.root                 as root,
+       ovr.id                   as id,
+       ovr.node                 as node,
+       ovr.overlapping          as overlapping,
+       ovr.overlapping_nodes    as overlapping_nodes,
+       ovr.e2_id                as e2_id,
+       ovr.e2_node              as e2_node,
+       ovr.e2_started_timestamp as e2_started_timestamp,
+       ovr.e2_stopped_timestamp as e2_stopped_timestamp,
+       ovr.e2_behaviour         as e2_behaviour,
+       att.tstamp               as att_tstamp,
+       att.hash                 as att_hash,
+       att.voted                as att_voted,
+       att.final                as att_final,
+       att.block.previous       as att_previous_hash
+FROM OverlappingResults ovr
+         LEFT JOIN vote_generator_attempts_to_election att
+                   ON ovr.e2_id = att.e_id
+ORDER BY ovr.overlapping_nodes DESC, ovr.overlapping DESC, ovr.root, ovr.id, ovr.node, ovr.e2_node, ovr.e2_started_timestamp, att.tstamp;
