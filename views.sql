@@ -151,10 +151,10 @@ FROM msg_sent_confirm_ack;
 -- VOTE GENERATOR
 
 CREATE VIEW vote_generator_attempts AS
-SELECT CAST(c.tstamp AS TIMESTAMP) as tstamp,
-       c.dir0                      as node,
-       c.should_vote               as voted,
-       c.is_final                  as final,
-       c.block.hash                as hash,
-       c.block                     as block
+SELECT CAST(c.tstamp AS TIMESTAMP)    as tstamp,
+       c.dir0                         as node,
+       CAST(c.should_vote AS BOOLEAN) as voted,
+       CAST(c.is_final AS BOOLEAN)    as final,
+       c.block.hash                   as hash,
+       c.block                        as block
 FROM `*/vote_generator-candidate_processed.log.json` c;
